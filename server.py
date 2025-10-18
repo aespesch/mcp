@@ -1,380 +1,322 @@
 #!/usr/bin/env python3
 """
-Fixed Simple File MCP Server - With proper JSON-RPC handling
+Simple File MCP Server - Ultra Robust Windows Version
 """
 
 import json
 import os
 import sys
-import asyncio
 from pathlib import Path
-from typing import Any, Dict, List, Optional
-import traceback
+from typing import Any, Dict, Optional
 
-# Define the working directory
-WORKING_DIR = Path("./mcp_sandbox")
-WORKING_DIR.mkdir(exist_ok=True)
+# CRITICAL: Redirect all logs to a file for debugging
+LOG_FILE = Path(__file__).parent / "server_debug.log"
 
-class SimpleMCPServer:
-    def __init__(self):
-        self.initialized = False
-        print(f"[SERVER] Starting Simple File MCP Server...", file=sys.stderr)
-        print(f"[SERVER] Sandbox directory: {WORKING_DIR.resolve()}", file=sys.stderr)
+def log(message: str):
+    """Log to both stderr and file"""
+    timestamp = __import__('datetime').datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")
+    log_msg = f"[{timestamp}] [SERVER] {message}\n"
     
-    async def handle_initialize(self, params: Dict[str, Any]) -> Dict[str, Any]:
-        """Handle initialization request"""
-        print(f"[SERVER] Initialize called with params: {params}", file=sys.stderr)
-        self.initialized = True
-        return {
-            "protocolVersion": "2024-11-05",
-            "capabilities": {
-                "tools": {
-                    "listChanged": False
-                }
+    # Write to stderr
+    sys.stderr.write(log_msg)
+    sys.stderr.flush()
+    
+    # Write to debug file
+    try:
+        with open(LOG_FILE, 'a', encoding='utf-8') as f:
+            f.write(log_msg)
+    except:
+        pass
+
+# Log startup
+log("=" * 60)
+log("SERVER STARTING")
+log(f"Python version: {sys.version}")
+log(f"Platform: {sys.platform}")
+log(f"Script: {__file__}")
+log(f"CWD: {os.getcwd()}")
+
+# Working directory
+WORKING_DIR = Path(__file__).parent / "mcp_sandbox"
+log(f"Working directory: {WORKING_DIR}")
+
+try:
+    WORKING_DIR.mkdir(parents=True, exist_ok=True)
+    log(f"✓ Sandbox created: {WORKING_DIR.resolve()}")
+except Exception as e:
+    log(f"✗ Error creating sandbox: {e}")
+
+# Tool definitions
+TOOLS = [
+    {
+        "name": "write_file",
+        "description": f"Write content to a file in {WORKING_DIR.resolve()}",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "filename": {"type": "string", "description": "Name of the file to write"},
+                "content": {"type": "string", "description": "Content to write to the file"}
             },
-            "serverInfo": {
-                "name": "simple-file-server",
-                "version": "0.2.0"
-            }
+            "required": ["filename", "content"]
         }
-    
-    async def handle_list_tools(self) -> Dict[str, Any]:
-        """Handle tools/list request"""
-        print(f"[SERVER] List tools called", file=sys.stderr)
-        tools = [
-            {
-                "name": "write_file",
-                "description": "Write content to a file in the sandbox directory",
-                "inputSchema": {
-                    "type": "object",
-                    "properties": {
-                        "filename": {
-                            "type": "string",
-                            "description": "Name of the file to write"
-                        },
-                        "content": {
-                            "type": "string", 
-                            "description": "Content to write to the file"
-                        }
-                    },
-                    "required": ["filename", "content"]
-                }
+    },
+    {
+        "name": "read_file",
+        "description": f"Read content from a file in {WORKING_DIR.resolve()}",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "filename": {"type": "string", "description": "Name of the file to read"}
             },
-            {
-                "name": "read_file",
-                "description": "Read content from a file in the sandbox directory",
-                "inputSchema": {
-                    "type": "object",
-                    "properties": {
-                        "filename": {
-                            "type": "string",
-                            "description": "Name of the file to read"
-                        }
-                    },
-                    "required": ["filename"]
-                }
-            },
-            {
-                "name": "list_files",
-                "description": "List all files in the sandbox directory",
-                "inputSchema": {
-                    "type": "object",
-                    "properties": {}
-                }
-            }
-        ]
-        return {"tools": tools}
+            "required": ["filename"]
+        }
+    },
+    {
+        "name": "list_files",
+        "description": f"List all files in {WORKING_DIR.resolve()}",
+        "inputSchema": {
+            "type": "object",
+            "properties": {}
+        }
+    }
+]
+
+def handle_initialize(params: Dict[str, Any]) -> Dict[str, Any]:
+    """Handle initialize request"""
+    log("INITIALIZE called")
+    log(f"  Params: {json.dumps(params)}")
     
-    async def handle_call_tool(self, name: str, arguments: Dict[str, Any]) -> Dict[str, Any]:
-        """Handle tools/call request"""
-        print(f"[SERVER] Tool called: {name} with args: {arguments}", file=sys.stderr)
-        
+    result = {
+        "protocolVersion": "2024-11-05",
+        "capabilities": {
+            "tools": {}
+        },
+        "serverInfo": {
+            "name": "simple-file-server",
+            "version": "0.4.0"
+        }
+    }
+    
+    log(f"  Result: {json.dumps(result)}")
+    return result
+
+def handle_list_tools() -> Dict[str, Any]:
+    """Handle tools/list request"""
+    log("TOOLS/LIST called")
+    result = {"tools": TOOLS}
+    log(f"  Returning {len(TOOLS)} tools")
+    return result
+
+def handle_call_tool(name: str, arguments: Dict[str, Any]) -> Dict[str, Any]:
+    """Handle tools/call request"""
+    log(f"TOOLS/CALL: {name}")
+    log(f"  Args: {json.dumps(arguments)}")
+    
+    try:
         if name == "write_file":
             filename = arguments.get("filename")
             content = arguments.get("content", "")
             
             if not filename:
-                return {
-                    "content": [
-                        {
-                            "type": "text",
-                            "text": "Error: filename is required"
-                        }
-                    ]
-                }
+                return {"content": [{"type": "text", "text": "Error: filename is required"}]}
             
             filepath = WORKING_DIR / filename
             
-            # Security check
-            try:
-                if not filepath.resolve().is_relative_to(WORKING_DIR.resolve()):
-                    return {
-                        "content": [
-                            {
-                                "type": "text",
-                                "text": "Error: Invalid filename. File must be in sandbox directory."
-                            }
-                        ]
-                    }
-            except ValueError:
-                return {
-                    "content": [
-                        {
-                            "type": "text",
-                            "text": "Error: Invalid filename path"
-                        }
-                    ]
-                }
+            if not filepath.resolve().is_relative_to(WORKING_DIR.resolve()):
+                return {"content": [{"type": "text", "text": "Error: Invalid filename"}]}
             
-            try:
-                filepath.write_text(content, encoding='utf-8')
-                msg = f"Successfully wrote {len(content)} characters to {filename}"
-                print(f"[SERVER] {msg}", file=sys.stderr)
-                return {
-                    "content": [
-                        {
-                            "type": "text",
-                            "text": msg
-                        }
-                    ]
-                }
-            except Exception as e:
-                return {
-                    "content": [
-                        {
-                            "type": "text",
-                            "text": f"Error writing file: {str(e)}"
-                        }
-                    ]
-                }
+            filepath.write_text(content, encoding='utf-8')
+            msg = f"✓ Wrote to {filepath.resolve()}\n({len(content)} characters)"
+            log(f"  Success: {msg}")
+            return {"content": [{"type": "text", "text": msg}]}
         
         elif name == "read_file":
             filename = arguments.get("filename")
             
             if not filename:
-                return {
-                    "content": [
-                        {
-                            "type": "text",
-                            "text": "Error: filename is required"
-                        }
-                    ]
-                }
+                return {"content": [{"type": "text", "text": "Error: filename is required"}]}
             
             filepath = WORKING_DIR / filename
             
-            # Security check
-            try:
-                if not filepath.resolve().is_relative_to(WORKING_DIR.resolve()):
-                    return {
-                        "content": [
-                            {
-                                "type": "text",
-                                "text": "Error: Invalid filename. File must be in sandbox directory."
-                            }
-                        ]
-                    }
-            except ValueError:
-                return {
-                    "content": [
-                        {
-                            "type": "text",
-                            "text": "Error: Invalid filename path"
-                        }
-                    ]
-                }
+            if not filepath.resolve().is_relative_to(WORKING_DIR.resolve()):
+                return {"content": [{"type": "text", "text": "Error: Invalid filename"}]}
             
-            try:
-                content = filepath.read_text(encoding='utf-8')
-                print(f"[SERVER] Read {len(content)} characters from {filename}", file=sys.stderr)
-                return {
-                    "content": [
-                        {
-                            "type": "text",
-                            "text": content
-                        }
-                    ]
-                }
-            except FileNotFoundError:
-                return {
-                    "content": [
-                        {
-                            "type": "text",
-                            "text": f"Error: File '{filename}' not found"
-                        }
-                    ]
-                }
-            except Exception as e:
-                return {
-                    "content": [
-                        {
-                            "type": "text",
-                            "text": f"Error reading file: {str(e)}"
-                        }
-                    ]
-                }
+            if not filepath.exists():
+                return {"content": [{"type": "text", "text": f"Error: File '{filename}' not found"}]}
+            
+            content = filepath.read_text(encoding='utf-8')
+            log(f"  Read {len(content)} characters")
+            return {"content": [{"type": "text", "text": content}]}
         
         elif name == "list_files":
-            try:
-                files = [f.name for f in WORKING_DIR.iterdir() if f.is_file()]
-                if files:
-                    file_list = "\n".join(f"- {f}" for f in sorted(files))
-                    msg = f"Files in sandbox:\n{file_list}"
-                else:
-                    msg = "No files in sandbox directory yet"
-                print(f"[SERVER] Found {len(files)} files", file=sys.stderr)
-                return {
-                    "content": [
-                        {
-                            "type": "text",
-                            "text": msg
-                        }
-                    ]
-                }
-            except Exception as e:
-                return {
-                    "content": [
-                        {
-                            "type": "text",
-                            "text": f"Error listing files: {str(e)}"
-                        }
-                    ]
-                }
+            files = [f.name for f in WORKING_DIR.iterdir() if f.is_file()]
+            if files:
+                file_list = "\n".join(f"  • {f}" for f in sorted(files))
+                msg = f"Files in {WORKING_DIR.resolve()}:\n{file_list}"
+            else:
+                msg = f"No files in {WORKING_DIR.resolve()} yet"
+            return {"content": [{"type": "text", "text": msg}]}
         
         else:
-            return {
-                "content": [
-                    {
-                        "type": "text",
-                        "text": f"Unknown tool: {name}"
-                    }
-                ]
-            }
+            return {"content": [{"type": "text", "text": f"Unknown tool: {name}"}]}
     
-    async def process_request(self, request: Dict[str, Any]) -> Optional[Dict[str, Any]]:
-        """Process a JSON-RPC request and return a response"""
-        method = request.get("method")
-        params = request.get("params", {})
-        request_id = request.get("id")
+    except Exception as e:
+        log(f"  ERROR: {e}")
+        import traceback
+        traceback.print_exc(file=sys.stderr)
+        return {"content": [{"type": "text", "text": f"Error: {str(e)}"}]}
+
+def process_request(request: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    """Process a JSON-RPC request"""
+    method = request.get("method")
+    params = request.get("params", {})
+    request_id = request.get("id")
+    
+    log(f"REQUEST: method={method}, id={request_id}")
+    
+    try:
+        result = None
         
-        print(f"[SERVER] Processing request: method={method}, id={request_id}", file=sys.stderr)
-        
-        try:
-            result = None
-            
-            if method == "initialize":
-                result = await self.handle_initialize(params)
-            elif method == "tools/list":
-                result = await self.handle_list_tools()
-            elif method == "tools/call":
-                name = params.get("name", "")
-                arguments = params.get("arguments", {})
-                result = await self.handle_call_tool(name, arguments)
-            else:
-                # Unknown method - return error
-                return {
-                    "jsonrpc": "2.0",
-                    "id": request_id,
-                    "error": {
-                        "code": -32601,
-                        "message": f"Method not found: {method}"
-                    }
-                }
-            
-            # Return success response
-            return {
-                "jsonrpc": "2.0",
-                "id": request_id,
-                "result": result
-            }
-            
-        except Exception as e:
-            print(f"[SERVER] Error processing request: {e}", file=sys.stderr)
-            traceback.print_exc(file=sys.stderr)
+        if method == "initialize":
+            result = handle_initialize(params)
+        elif method == "initialized":
+            log("  Received initialized notification (no response needed)")
+            return None
+        elif method == "tools/list":
+            result = handle_list_tools()
+        elif method == "tools/call":
+            name = params.get("name", "")
+            arguments = params.get("arguments", {})
+            result = handle_call_tool(name, arguments)
+        else:
+            log(f"  Unknown method: {method}")
             return {
                 "jsonrpc": "2.0",
                 "id": request_id,
                 "error": {
-                    "code": -32603,
-                    "message": "Internal error",
-                    "data": str(e)
+                    "code": -32601,
+                    "message": f"Method not found: {method}"
                 }
             }
+        
+        response = {
+            "jsonrpc": "2.0",
+            "id": request_id,
+            "result": result
+        }
+        log(f"  Response prepared for id={request_id}")
+        return response
     
-    def send_message(self, message: Dict[str, Any]):
-        """Send a JSON-RPC message over stdout with proper framing"""
+    except Exception as e:
+        log(f"  ERROR processing request: {e}")
+        import traceback
+        traceback.print_exc(file=sys.stderr)
+        return {
+            "jsonrpc": "2.0",
+            "id": request_id,
+            "error": {
+                "code": -32603,
+                "message": "Internal error",
+                "data": str(e)
+            }
+        }
+
+def send_message(message: Dict[str, Any]):
+    """Send a JSON-RPC message"""
+    try:
         json_str = json.dumps(message)
-        output = f"Content-Length: {len(json_str)}\r\n\r\n{json_str}"
-        sys.stdout.write(output)
+        
+        # Try newline-delimited JSON format first (simpler)
+        sys.stdout.write(json_str + '\n')
         sys.stdout.flush()
-        print(f"[SERVER] Sent response: {message.get('id', 'notification')}", file=sys.stderr)
-    
-    async def read_message(self) -> Optional[Dict[str, Any]]:
-        """Read a JSON-RPC message from stdin with proper framing"""
-        try:
-            # Read Content-Length header
-            header_line = sys.stdin.readline()
-            if not header_line:
-                return None
-            
-            if "Content-Length:" not in header_line:
-                print(f"[SERVER] Invalid header: {header_line.strip()}", file=sys.stderr)
-                return None
-            
-            content_length = int(header_line.split(":", 1)[1].strip())
-            print(f"[SERVER] Reading message with length: {content_length}", file=sys.stderr)
+        
+        log(f"SENT response id={message.get('id')}")
+    except Exception as e:
+        log(f"ERROR sending message: {e}")
+        import traceback
+        traceback.print_exc(file=sys.stderr)
+
+def read_message() -> Optional[Dict[str, Any]]:
+    """Read a JSON-RPC message from stdin"""
+    try:
+        # Read first line
+        first_line = sys.stdin.readline().strip()
+        if not first_line:
+            log("No input (EOF)")
+            return None
+        
+        log(f"READ first line: {first_line[:100]}...")
+        
+        # Check if it's Content-Length format or direct JSON
+        if "Content-Length:" in first_line:
+            # Standard MCP format with Content-Length header
+            content_length = int(first_line.split(":", 1)[1].strip())
+            log(f"Content-Length format: {content_length} bytes")
             
             # Read empty line
             sys.stdin.readline()
             
-            # Read JSON content
+            # Read content
             content = sys.stdin.read(content_length)
             if not content:
+                log("No content")
                 return None
             
             message = json.loads(content)
-            print(f"[SERVER] Received message: method={message.get('method')}, id={message.get('id')}", file=sys.stderr)
-            return message
-            
-        except Exception as e:
-            print(f"[SERVER] Error reading message: {e}", file=sys.stderr)
-            traceback.print_exc(file=sys.stderr)
-            return None
-    
-    async def run(self):
-        """Main server loop"""
-        print(f"[SERVER] Server ready, waiting for messages...", file=sys.stderr)
+        else:
+            # Direct JSON format (Claude Desktop seems to use this)
+            log("Direct JSON format")
+            message = json.loads(first_line)
         
-        while True:
-            try:
-                # Read next message
-                message = await self.read_message()
-                if message is None:
-                    print(f"[SERVER] No more messages, shutting down", file=sys.stderr)
-                    break
-                
-                # Process request and get response
-                response = await self.process_request(message)
-                
-                # Send response if there is one (not for notifications)
-                if response:
-                    self.send_message(response)
-                
-            except KeyboardInterrupt:
-                print(f"[SERVER] Interrupted, shutting down", file=sys.stderr)
-                break
-            except Exception as e:
-                print(f"[SERVER] Unexpected error: {e}", file=sys.stderr)
-                traceback.print_exc(file=sys.stderr)
-                # Try to continue
-                continue
+        log(f"RECEIVED: method={message.get('method')}, id={message.get('id')}")
+        return message
+    
+    except Exception as e:
+        log(f"ERROR reading message: {e}")
+        import traceback
+        traceback.print_exc(file=sys.stderr)
+        return None
 
-async def main():
-    server = SimpleMCPServer()
-    await server.run()
+def main():
+    """Main entry point"""
+    log("MAIN LOOP starting")
+    
+    try:
+        iteration = 0
+        while True:
+            iteration += 1
+            log(f"--- Iteration {iteration} ---")
+            
+            message = read_message()
+            if message is None:
+                log("No message, exiting")
+                break
+            
+            response = process_request(message)
+            
+            if response:
+                send_message(response)
+            else:
+                log("No response to send (notification)")
+        
+        log("MAIN LOOP ended normally")
+    
+    except KeyboardInterrupt:
+        log("INTERRUPTED by keyboard")
+    except Exception as e:
+        log(f"FATAL ERROR: {e}")
+        import traceback
+        traceback.print_exc(file=sys.stderr)
+        sys.exit(1)
+    
+    log("SERVER SHUTDOWN")
+    log("=" * 60)
 
 if __name__ == "__main__":
     try:
-        asyncio.run(main())
-    except KeyboardInterrupt:
-        print(f"[SERVER] Shutdown complete", file=sys.stderr)
+        main()
+    except Exception as e:
+        log(f"EXCEPTION in __main__: {e}")
+        import traceback
+        traceback.print_exc(file=sys.stderr)
+        sys.exit(1)
