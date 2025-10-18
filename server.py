@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """
-Simple File MCP Server - Ultra Robust Windows Version
+Simple File MCP Server - Fixed Version
+Corrected to properly handle MCP protocol
 """
 
 import json
@@ -30,7 +31,7 @@ def log(message: str):
 
 # Log startup
 log("=" * 60)
-log("SERVER STARTING")
+log("SERVER STARTING - FIXED VERSION")
 log(f"Python version: {sys.version}")
 log(f"Platform: {sys.platform}")
 log(f"Script: {__file__}")
@@ -93,7 +94,7 @@ def handle_initialize(params: Dict[str, Any]) -> Dict[str, Any]:
         },
         "serverInfo": {
             "name": "simple-file-server",
-            "version": "0.4.0"
+            "version": "0.5.0"
         }
     }
     
@@ -105,6 +106,20 @@ def handle_list_tools() -> Dict[str, Any]:
     log("TOOLS/LIST called")
     result = {"tools": TOOLS}
     log(f"  Returning {len(TOOLS)} tools")
+    return result
+
+def handle_list_prompts() -> Dict[str, Any]:
+    """Handle prompts/list request - return empty list"""
+    log("PROMPTS/LIST called")
+    result = {"prompts": []}
+    log("  Returning empty prompts list")
+    return result
+
+def handle_list_resources() -> Dict[str, Any]:
+    """Handle resources/list request - return empty list"""
+    log("RESOURCES/LIST called")
+    result = {"resources": []}
+    log("  Returning empty resources list")
     return result
 
 def handle_call_tool(name: str, arguments: Dict[str, Any]) -> Dict[str, Any]:
@@ -179,11 +194,16 @@ def process_request(request: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         
         if method == "initialize":
             result = handle_initialize(params)
-        elif method == "initialized":
+        elif method == "initialized" or method == "notifications/initialized":
+            # This is a notification, no response needed
             log("  Received initialized notification (no response needed)")
             return None
         elif method == "tools/list":
             result = handle_list_tools()
+        elif method == "prompts/list":
+            result = handle_list_prompts()
+        elif method == "resources/list":
+            result = handle_list_resources()
         elif method == "tools/call":
             name = params.get("name", "")
             arguments = params.get("arguments", {})
