@@ -1,2 +1,0 @@
-# THALES_OUTPUT.TXT - Thales responds here
-Isto é um teste

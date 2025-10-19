@@ -1,0 +1,19 @@
+Crie um script python que analise a pasta local (a mesma em que o script está sendo executado) e encontre arquivos do tipo CSV com nomes semelhantes a df_candles_BNBBRL.CSV onde BNBBRL são pares de criptomoedas (BNB x BRL) e o conteúdo do arquivo é similar a:
+
+```
+timestamp,open_price,high_price,low_price,close_price,volume,timestamp2,open_date,open_time
+2025-03-14 21:30:00+00:00,769.6,774.4,768.3,771.9,22882,2025-03-14 18:30:00-03:00,2025-03-14,18:30:00
+2025-03-14 21:45:00+00:00,774.2,778.6,774.1,777.9,53296,2025-03-14 18:45:00-03:00,2025-03-14,18:45:00
+```
+
+O script deve criar um arquivo com o mesmo nome do arquivo CSV mas com a extensão SQL. Neste arquivo SQL devem haver chamadas para a função sp_insert_candle conforme este exemplo:
+```
+call sp_insert_candle('BNBBRL','2025-03-14 21:30:00+00:00',769.6,774.4,768.3,771.9,22882)
+call sp_insert_candle('BNBBRL','2025-03-14 21:45:00+00:00',774.2,778.6,774.1,777.9,53296)
+```
+
+Ou seja:
+1. Os argumentos de sp_insert_candle são coin_pair,timestamp,open_price,high_price,low_price,close_price,volume
+2. O argumento coin_pair é obtido do nome do arquivo CSV.
+3. Os demais argumentos são obtidos do conteúdo do arquivo CSV.
+ 

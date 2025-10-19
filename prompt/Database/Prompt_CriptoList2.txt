@@ -1,0 +1,4 @@
+Modifique sp_insert_candle de modo que ela funcione com este comando:
+call sp_insert_candle('2025-03-14 21:30:00+00:00',769.6,774.4,768.3,771.9,22882)
+
+Considere que o banco de dados que armazena os dados está em São Paulo (GMT-3).

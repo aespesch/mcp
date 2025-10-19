@@ -1,0 +1,27 @@
+Modifique o código de modo que os símbolos de moedas possam ter 3 ou 4 letras.
+
+Inclua os seguintes símbolos:
+SOL
+BTC
+BRL
+BNB
+RED
+USDC
+USDT
+
+Não use o símbolo USD.
+
+Considere que estes símbolos são FIAT:
+BRL
+USDC
+USDT
+
+Considere válidos os seguintes pares:
+BNBBRL
+BTCBRL
+BTCUSDC
+BTCUDST
+REDUSDT
+SOLBRL
+SOLUSDT
+
