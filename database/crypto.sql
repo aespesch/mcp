@@ -231,3 +231,14 @@ INNER JOIN symbol_pair sp ON cd.cndl_symbol_pair_id = sp.smpr_id
 INNER JOIN symbol base ON sp.smpr_base_symbol_id = base.smbl_id
 INNER JOIN symbol quote ON sp.smpr_quote_symbol_id = quote.smbl_id
 ORDER BY base.smbl_code, quote.smbl_code, cd.cndl_date, ct.cntm_minutes;
+
+SELECT
+    CONCAT(base.smbl_code, quote.smbl_code) AS pair,
+    COUNT(*) AS qty
+FROM candle_time ct
+INNER JOIN candle_day cd ON ct.cntm_candle_day_id = cd.cndl_id
+INNER JOIN symbol_pair sp ON cd.cndl_symbol_pair_id = sp.smpr_id
+INNER JOIN symbol base ON sp.smpr_base_symbol_id = base.smbl_id
+INNER JOIN symbol quote ON sp.smpr_quote_symbol_id = quote.smbl_id
+GROUP BY base.smbl_code, quote.smbl_code
+ORDER BY pair;

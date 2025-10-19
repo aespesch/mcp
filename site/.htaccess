@@ -1,0 +1,10 @@
+# Protect .ENV file from being accessed via web browser
+<FilesMatch "^\.ENV$">
+    Order allow,deny
+    Deny from all
+</FilesMatch>
+
+# Alternative protection for Apache 2.4+
+<Files ".ENV">
+    Require all denied
+</Files>
